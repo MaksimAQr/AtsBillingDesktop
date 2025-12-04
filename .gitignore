@@ -1,25 +1,23 @@
-# Visual Studio Code
 .vscode/
 .history/
 
-# Build artifacts
 [Bb]in/
 [Oo]bj/
 artifacts/
 out/
 
-# NuGet
 packages/
 *.nupkg
 project.lock.json
 packages.lock.json
 .nuget/
 
-# Logs
 *.log
 
-# Misc
 *.vs/
+
+.DS_Store
+.DS_Store?
 
 exported_tariffs.json
 import_tariffs.json

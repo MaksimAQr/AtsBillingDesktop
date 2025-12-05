@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ATS_Desktop.ViewModels"
+             x:Class="ATS_Desktop.Views.Components.AddTariffDialog"
+             x:DataType="vm:UserViewModel">
+    
+    <Border Background="rgba(0,0,0,0.7)" 
+            CornerRadius="8" 
+            Padding="20"
+            IsVisible="{Binding IsAddTariffDialogVisible}"
+            VerticalAlignment="Center" 
+            HorizontalAlignment="Center"
+            Width="300"
+            ZIndex="1000">
+        
+        <StackPanel Spacing="15">
+            <!-- Заголовок -->
+            <TextBlock Text="{Binding SelectedConsumerForTariff, StringFormat='Добавление тарифа для: {0}'}" 
+                       Foreground="White" 
+                       FontSize="16" 
+                       FontWeight="Bold"/>
+            
+            <!-- Выбор тарифа -->
+            <StackPanel>
+                <TextBlock Text="Выберите тариф" 
+                           Foreground="#BDC3C7" 
+                           FontSize="12"/>
+                <ComboBox ItemsSource="{Binding Tariffs}"
+                          SelectedItem="{Binding SelectedTariffToAdd}"
+                          DisplayMemberBinding="{Binding Name}"
+                          Background="#34495E" 
+                          Foreground="White"
+                          Padding="10"/>
+            </StackPanel>
+            
+            <!-- Ввод минут -->
+            <StackPanel>
+                <TextBlock Text="Количество минут" 
+                           Foreground="#BDC3C7" 
+                           FontSize="12"/>
+                <TextBox Text="{Binding MinutesToAdd}" 
+                         Watermark="100"
+                         Background="#34495E" 
+                         Foreground="White"
+                         Padding="10"/>
+            </StackPanel>
+            
+            <!-- Кнопки диалога -->
+            <StackPanel Orientation="Horizontal" 
+                        Spacing="10" 
+                        HorizontalAlignment="Right">
+                <Button Content="Отмена" 
+                        Command="{Binding CancelAddTariffDialogCommand}"
+                        Background="#95A5A6" 
+                        Foreground="White"
+                        Padding="15,8"/>
+                
+                <Button Content="Добавить" 
+                        Command="{Binding AddTariffToConsumerCommand}"
+                        Background="#27AE60" 
+                        Foreground="White"
+                        Padding="15,8"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+    
+</UserControl>

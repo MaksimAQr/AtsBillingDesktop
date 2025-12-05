@@ -1,0 +1,193 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ATS_Desktop.ViewModels"
+        xmlns:components="using:ATS_Desktop.Views.Components"
+        xmlns:pages="using:ATS_Desktop.Views.Pages"
+        x:Class="ATS_Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        x:Name="RootWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="ATS Desktop"
+        Background="#1b4066ff"
+        SizeToContent="WidthAndHeight"
+        MinHeight="600"
+        MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        CanResize="True">
+        
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/> <!-- Панель управления -->
+            <RowDefinition Height="*"/>    <!-- Остальное содержимое -->
+        </Grid.RowDefinitions>
+
+        <components:AddTariffDialog ZIndex="1000" DataContext="{Binding UserVM}" Grid.Row="1"/>
+        <Grid MaxHeight="300" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <components:ImportExportPanel Grid.Column="0"
+                IsVisible="{Binding TariffVM.ShowAddTariffForm, Converter={x:Static BoolConverters.Not}}"
+                DataContext="{Binding}"  
+                ImportCommand="{Binding ImportTariffsCommand}"
+                ExportCommand="{Binding ExportTariffsCommand}"/>
+            
+            <Button Grid.Column="1"
+                    Content="➕ Добавить тариф" 
+                    Command="{Binding TariffVM.ShowAddTariffFormCommand}"
+                    HorizontalAlignment="Right" 
+                    VerticalAlignment="Center"
+                    Background="#3498DB" 
+                    Foreground="White"
+                    Padding="15,8"
+                    Margin="10, 10, 0 0"
+                    IsVisible="{Binding TariffVM.ShowAddTariffForm, Converter={x:Static BoolConverters.Not}}"/>
+        </Grid>
+        
+
+        <components:AddTariffForm 
+            DataContext="{Binding TariffVM}"/>
+        
+        <Grid Margin="0,50,0,0"
+              Grid.Row="2" 
+              IsVisible="{Binding TariffVM.ShowAddTariffForm, Converter={x:Static BoolConverters.Not}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            
+                <components:AddConsumerPanel
+                    Grid.Row="0" 
+                    DataContext="{Binding UserVM}"
+                    RefreshCommand="{Binding DataContext.RefreshDataCommand, ElementName=RootWindow}"/>
+            
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                
+
+                    <StackPanel Grid.Column="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> 
+                            <RowDefinition Height="*"/>    
+                        </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0"
+                                    Text="{Binding UserVM.Consumers.Count, StringFormat='Потребители ({0})'}" 
+                                    Foreground="White"
+                                    FontSize="18"
+                                    FontWeight="Bold"
+                                    Margin="0,0,0,15"/>
+                            <ScrollViewer Grid.Row="1"
+                                        VerticalScrollBarVisibility="Auto" 
+                                        MaxHeight="600">
+                                <ItemsControl ItemsSource="{Binding UserVM.Consumers}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,5">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <!-- Компонент списка -->
+                                                <components:ListComponent Grid.Column="0"/>
+                                                
+                                                <!-- Кнопки действий -->
+                                                <StackPanel Grid.Column="1" 
+                                                            Orientation="Horizontal"
+                                                            Spacing="15">
+                                                    <!-- Кнопка добавления тарифа -->
+                                                    <Button Content="➕ Тариф"
+                                                            Command="{Binding DataContext.UserVM.ShowAddTariffDialogCommand, ElementName=RootWindow}"
+                                                            CommandParameter="{Binding Name}"
+                                                            ToolTip.Tip="Добавить тариф пользователю"
+                                                            Background="#3498DB" 
+                                                            Foreground="White"
+                                                            Width="120" 
+                                                            Height="30"/>
+                                                    
+                                                    <!-- Кнопка удаления -->
+                                                    <Button Content="✕"
+                                                            Command="{Binding DataContext.UserVM.DeleteConsumerCommand, ElementName=RootWindow}"
+                                                            CommandParameter="{Binding Name}"
+                                                            Background="#E74C3C" 
+                                                            Foreground="White"
+                                                            Width="30" 
+                                                            Height="30"
+                                                            HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                        </StackPanel>
+                
+               
+                        <StackPanel Grid.Column="2">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/> 
+                                    <RowDefinition Height="Auto"/> 
+                                    <RowDefinition Height="*"/>    
+                                </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0"
+                                    Background="#2C3E50" 
+                                    CornerRadius="8" 
+                                    Padding="15"
+                                    Margin="0,10,0,10">
+                                <StackPanel Orientation="Horizontal" 
+                                            Spacing="15"
+                                            VerticalAlignment="Center">
+                                    <Button Command="{Binding TariffVM.ToggleSortCommand}"
+                                            Background="#34495E"
+                                            Foreground="White"
+                                            BorderThickness="0"
+                                            Padding="15,8"
+                                            CornerRadius="5"
+                                            MinWidth="200">
+                                        <StackPanel Orientation="Horizontal" 
+                                                    Spacing="5">
+                                            <TextBlock Text="Сортировка:"/>
+                                            <TextBlock Text="{Binding TariffVM.SortDirectionText}"
+                                                    Foreground="#27AE60"
+                                                    FontWeight="Bold"
+                                                    Margin="5,0,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                            
+                            <TextBlock Grid.Row="1"
+                                        Text="{Binding UserVM.Tariffs.Count, StringFormat='Тарифы ({0})'}" 
+                                    Foreground="White"
+                                    FontSize="18"
+                                    FontWeight="Bold"
+                                    Margin="0,0,0,15"/>
+                            
+                            <ScrollViewer Grid.Row="2"
+                                        VerticalScrollBarVisibility="Auto" 
+                                        MaxHeight="600">
+                                <ItemsControl ItemsSource="{Binding TariffVM.SortedTariffs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <components:TariffCard/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            </Grid>
+                        </StackPanel>
+                </Grid>
+        </Grid>
+    </Grid>
+</Window>

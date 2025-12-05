@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:ATS_Desktop.Models"
+             x:Class="ATS_Desktop.Views.Components.ListComponent"
+             x:DataType="models:Consumer">  <!-- Тип данных = Consumer -->
+    
+    <Button Background="Transparent"
+            BorderThickness="0"
+            Margin="0,2"
+            Width="200">
+        <Border Background="#2C3E50" 
+                CornerRadius="8" 
+                Margin="0,5" 
+                Padding="15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0">
+                    <!-- Прямые привязки к Consumer -->
+                    <TextBlock Text="{Binding Name}" 
+                               Foreground="White"
+                               FontSize="16"
+                               FontWeight="Bold"/>
+                    
+                    <TextBlock Text="{Binding TotalCost, StringFormat='Общая стоимость: {0:C}'}" 
+                               Foreground="#BDC3C7"
+                               FontSize="12"
+                               Margin="0,5,0,0"/>
+                    
+                    <ItemsControl ItemsSource="{Binding Tariffs}" 
+                                  Margin="10,5,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:ConsumerTariff"> 
+                                <TextBlock Text="{Binding displayInfo}" 
+                                           Foreground="#95A5A6"
+                                           FontSize="11"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            
+
+            </Grid>
+        </Border>
+    </Button>
+</UserControl>

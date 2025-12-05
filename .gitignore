@@ -21,3 +21,4 @@ packages.lock.json
 
 exported_tariffs.json
 import_tariffs.json
+**/*.json

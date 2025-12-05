@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:ATS_Desktop.Models"
+             x:Class="ATS_Desktop.Views.Components.TariffCard"
+             x:DataType="models:TariffInfo">
+    <Button Click="OnTariffCardClick"
+            Background="Transparent"
+            BorderThickness="0"
+            Padding="20, 0"
+            HorizontalAlignment="Stretch">
+    <Border 
+            Background="#34495E" 
+            CornerRadius="8" 
+            Margin="0,10" 
+            Padding="15"
+            BorderBrush="#2C3E50"
+            BorderThickness="1">
+        <StackPanel>
+            <!-- Название тарифа -->
+            <TextBlock Text="{Binding Name}" 
+                       Foreground="White"
+                       FontSize="16"
+                       FontWeight="Bold"/>
+            
+            <!-- Тип тарифа и базовая стоимость -->
+            <TextBlock Text="{Binding StrategyName, StringFormat='Тип: {0}'}" 
+                       Foreground="#BDC3C7"
+                       FontSize="12"
+                       Margin="0,2,0,0"/>
+            
+            <TextBlock Text="{Binding BaseCost, StringFormat='Базовая стоимость: {0:C}/min'}" 
+                       Foreground="#BDC3C7"
+                       FontSize="12"
+                       Margin="0,2,0,0"/>
+            
+            <!-- Количество потребителей -->
+            <TextBlock Text="{Binding ConsumerCount, StringFormat='Потребителей: {0}'}" 
+                       Foreground="#2ECC71"
+                       FontSize="12"
+                       FontWeight="Bold"
+                       Margin="0,5,0,0"/>
+        </StackPanel>
+    </Border>
+    </Button>
+</UserControl>

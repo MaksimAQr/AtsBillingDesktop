@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ATS_Desktop.ViewModels"
+             x:Class="ATS_Desktop.Views.Components.AddConsumerPanel"
+             x:DataType="vm:UserViewModel"
+             x:Name="Self">
+            <Border Background="#2C3E50" 
+                    CornerRadius="8" 
+                    Padding="15"
+                    Margin="0,0,0,20">
+                    <StackPanel Orientation="Horizontal" 
+                                Spacing="15">
+                        <TextBlock Text="Добавить пользователя:" 
+                                Foreground="White"
+                                FontSize="10"
+                                FontWeight="Bold"
+                                VerticalAlignment="Center"/>
+                        
+                        <!-- Имя пользователя -->
+                        <StackPanel>
+                            <TextBlock Text="Введите имя:" 
+                                    Foreground="#BDC3C7"
+                                    FontSize="12"
+                                    FontWeight="Bold"
+                                    VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding NewConsumerName}" 
+                                    Watermark="Имя пользователя"
+                                    Width="150"
+                                    Background="#34495E"
+                                    Foreground="White"/>
+                        </StackPanel>
+                        
+                        <!-- Минуты -->
+                        <StackPanel>
+                            <TextBlock Text="Введите кол-во минут:" 
+                                    Foreground="#BDC3C7"
+                                    FontSize="12"
+                                    FontWeight="Bold"
+                                    VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding NewConsumerMinutes}" 
+                                    Watermark="Минуты"
+                                    Width="80"
+                                    Background="#34495E"
+                                    Foreground="White"/>
+                        </StackPanel>
+                        
+                        <!-- Выбор тарифа -->
+                        <StackPanel>
+                            <TextBlock Text="Выберите тариф:" 
+                                    Foreground="#BDC3C7"
+                                    FontSize="12"
+                                    FontWeight="Bold"
+                                    VerticalAlignment="Center"/>
+                            <ComboBox ItemsSource="{Binding Tariffs}"
+                                    SelectedItem="{Binding SelectedTariffItem}"
+                                    DisplayMemberBinding="{Binding Name}"
+                                    Width="120"
+                                    Background="#34495E"
+                                    Foreground="White"/>
+                        </StackPanel>
+                        
+                        <!-- Кнопки -->
+                        <Button Content="Добавить" 
+                                Command="{Binding AddConsumerCommand}"
+                                Background="#27AE60"
+                                Foreground="White"
+                                Padding="15,5"/>
+                        
+                        <Button Content="Обновить" 
+                                Command="{Binding RefreshCommand, ElementName=Self}"
+                                Foreground="White"
+                                Padding="15,5"/>
+                    </StackPanel>
+                </Border>
+</UserControl>

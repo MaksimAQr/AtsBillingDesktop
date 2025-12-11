@@ -1,7 +1,7 @@
-using ATS_Desktop.Models.BillingStrategy;
+using ATS_Desktop.Services.BillingStrategy;
 using System;
 
-namespace ATS_Desktop.Models;
+namespace ATS_Desktop.Services;
 public partial class Tariff
 {
     internal string name;

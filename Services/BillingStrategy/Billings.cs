@@ -1,7 +1,7 @@
 using System.Text;
 using System;
 
-namespace ATS_Desktop.Models.BillingStrategy;
+namespace ATS_Desktop.Services.BillingStrategy;
 
 class RegularBilling : IBillingStrategy, IBillable, IReportable, IAuditable 
 {

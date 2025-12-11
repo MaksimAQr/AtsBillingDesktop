@@ -1,4 +1,4 @@
-namespace ATS_Desktop.Models.BillingStrategy;
+namespace ATS_Desktop.Services.BillingStrategy;
 
 public interface IBillingStrategy
 {

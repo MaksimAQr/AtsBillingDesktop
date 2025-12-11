@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json.Serialization;
-using ATS_Desktop.Models.BillingStrategy;
+using ATS_Desktop.Models;
+using ATS_Desktop.Services.BillingStrategy;
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace ATS_Desktop.Models;
+namespace ATS_Desktop.Services;
 
 public class ATS
 {

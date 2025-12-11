@@ -1,8 +1,10 @@
 using System.Windows.Input;
 using ATS_Desktop.Models;
+using ATS_Desktop.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ATS_Desktop.ViewModels;
 
@@ -13,6 +15,7 @@ public class TariffViewModel : ViewModelBase
     private readonly Action _onTariffAdded;
     private readonly ATS _ats; // Добавляем ссылку на ATS
     private bool _showAddTariffForm;
+    private readonly Func<TariffInfo, Task> _saveTariffToDb;
     
     public ObservableCollection<TariffInfo> SortedTariffs { get; } = new ObservableCollection<TariffInfo>();
     
@@ -55,16 +58,18 @@ public class TariffViewModel : ViewModelBase
         ATS ats, // Добавляем параметр ATS
         Func<ObservableCollection<TariffInfo>> getTariffs, 
         Func<ObservableCollection<Consumer>> getConsumers, 
-        Action onTariffAdded = null)
+        Action onTariffAdded = null,
+        Func<TariffInfo, Task> saveTariffToDb = null)
     {
         _ats = ats; // Сохраняем ATS
         _getTariffs = getTariffs;
         _getConsumers = getConsumers;
         _onTariffAdded = onTariffAdded;
+        _saveTariffToDb = saveTariffToDb;
         TariffEditVM = new TariffEditViewModel();   
              
         ShowAddTariffFormCommand = new RelayCommand(() => ShowAddTariffForm = true);
-        AddTariffCommand = new RelayCommand(AddTariff, CanAddTariff);
+        AddTariffCommand = new RelayCommand(async () => await AddTariffAsync(), CanAddTariff);        
         CancelAddTariffCommand = new RelayCommand(() => ShowAddTariffForm = false);
         ToggleSortCommand = new RelayCommand(ToggleSort);
         ToggleDescriptionCommand = new RelayCommand(() => 
@@ -120,33 +125,75 @@ public class TariffViewModel : ViewModelBase
         SortDescending = !SortDescending;
     }
     
-    public void AddTariff()
+    private async Task AddTariffAsync()
     {
         if (string.IsNullOrWhiteSpace(TariffEditVM.Name) || TariffEditVM.Cost <= 0)
         {
             return;
         }
         
-        if (TariffEditVM.IsPreferential)
+        try
         {
-            // Вызываем метод ATS для добавления льготного тарифа
-            _ats.AddPreferentialTariff(TariffEditVM.Name, TariffEditVM.Cost, TariffEditVM.Discount, TariffEditVM.Description);
-            Console.WriteLine($"Добавлен льготный тариф: {TariffEditVM.Name}, цена: {TariffEditVM.Cost}, скидка: {TariffEditVM.Discount}%");
+            TariffInfo newTariff;
+            
+            if (TariffEditVM.IsPreferential)
+            {
+                // Вызываем метод ATS для добавления льготного тарифа
+                _ats.AddPreferentialTariff(
+                    TariffEditVM.Name, 
+                    TariffEditVM.Cost, 
+                    TariffEditVM.Discount, 
+                    TariffEditVM.Description);
+                
+                newTariff = new TariffInfo
+                {
+                    Name = TariffEditVM.Name,
+                    BaseCost = TariffEditVM.Cost,
+                    StrategyName = $"Preferential ({TariffEditVM.Discount}%)",
+                    Description = TariffEditVM.Description,
+                    ConsumerCount = 0
+                };
+                
+                Console.WriteLine($"Добавлен льготный тариф: {TariffEditVM.Name}, цена: {TariffEditVM.Cost}, скидка: {TariffEditVM.Discount}%");
+            }
+            else
+            {
+                // Вызываем метод ATS для добавления простого тарифа
+                _ats.AddSimpleTariff(
+                    TariffEditVM.Name, 
+                    TariffEditVM.Cost, 
+                    TariffEditVM.Description);
+                
+                newTariff = new TariffInfo
+                {
+                    Name = TariffEditVM.Name,
+                    BaseCost = TariffEditVM.Cost,
+                    StrategyName = "Simple",
+                    Description = TariffEditVM.Description,
+                    ConsumerCount = 0
+                };
+                
+                Console.WriteLine($"Добавлен простой тариф: {TariffEditVM.Name}, цена: {TariffEditVM.Cost}");
+            }
+            
+            // Сохраняем в БД если передан делегат
+            if (_saveTariffToDb != null)
+            {
+                await _saveTariffToDb(newTariff);
+            }
+            
+            // Уведомляем о добавлении тарифа
+            _onTariffAdded?.Invoke();
+            
+            ClearForm();
+            
+            // Обновляем список
+            UpdateSortedTariffs();
         }
-        else
+        catch (Exception ex)
         {
-            // Вызываем метод ATS для добавления простого тарифа
-            _ats.AddSimpleTariff(TariffEditVM.Name, TariffEditVM.Cost, TariffEditVM.Description);
-            Console.WriteLine($"Добавлен простой тариф: {TariffEditVM.Name}, цена: {TariffEditVM.Cost}");
+            Console.WriteLine($"Ошибка добавления тарифа: {ex.Message}");
         }
-        
-        // Уведомляем о добавлении тарифа
-        _onTariffAdded?.Invoke();
-        
-        ClearForm();
-        
-        // Обновляем список
-        UpdateSortedTariffs();
     }
     
     private bool CanAddTariff()

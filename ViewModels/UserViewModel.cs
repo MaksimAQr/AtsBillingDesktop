@@ -6,6 +6,8 @@ using System.Windows.Input;
 using System.Runtime.CompilerServices;
 using ATS_Desktop.Models;
 using ATS_Desktop.Services;
+using System.Threading.Tasks;
+using System.Linq;
 
 
 namespace ATS_Desktop.ViewModels;
@@ -15,6 +17,11 @@ public class UserViewModel : INotifyPropertyChanged
     private readonly ATS _ats;
     private readonly TariffViewModel _tariffVM;
     private readonly DataService _dataService;
+
+    private readonly Func<Consumer, Task> _saveConsumerToDb;
+    private readonly Func<string, Task> _deleteConsumerFromDb;
+    private readonly Func<string, string, int, Task> _addConsumerTariffToDb;
+
     
     private string _newConsumerName = string.Empty;
     private int _newConsumerMinutes = 100;
@@ -138,23 +145,33 @@ public class UserViewModel : INotifyPropertyChanged
     
     public event PropertyChangedEventHandler PropertyChanged;
     
-    public UserViewModel(ATS ats, DataService dataService, TariffViewModel tariffVM)
+    public UserViewModel(
+        ATS ats, 
+        DataService dataService, 
+        TariffViewModel tariffVM,
+        Func<Consumer, Task> saveConsumerToDb = null,
+        Func<string, Task> deleteConsumerFromDb = null,
+        Func<string, string, int, Task> addConsumerTariffToDb = null)
     {
         _ats = ats;
         _dataService = dataService;
         _tariffVM = tariffVM;
+        _saveConsumerToDb = saveConsumerToDb;
+        _deleteConsumerFromDb = deleteConsumerFromDb;
+        _addConsumerTariffToDb = addConsumerTariffToDb;
+
         
         Consumers = new ObservableCollection<Consumer>();
         Tariffs = new ObservableCollection<TariffInfo>();
         
         // Инициализация команд
-        AddConsumerCommand = new RelayCommand(AddNewConsumer, CanAddNewConsumer);
-        DeleteConsumerCommand = new RelayCommand((param) => 
+        AddConsumerCommand = new RelayCommand(async () => await AddNewConsumerAsync(), CanAddNewConsumer);
+        DeleteConsumerCommand = new RelayCommand(async (param) => 
         {
             if (param is string consumerName)
-                DeleteConsumer(consumerName);
+                await DeleteConsumerAsync(consumerName);
         });        
-        AddTariffToConsumerCommand = new RelayCommand(AddTariffToConsumer, CanAddTariffToConsumer);
+        AddTariffToConsumerCommand = new RelayCommand(async () => await AddTariffToConsumerAsync(), CanAddTariffToConsumer);
         ShowAddTariffDialogCommand = new RelayCommand((param) =>
         {
             if (param is string consumerName && !string.IsNullOrEmpty(consumerName))
@@ -168,19 +185,38 @@ public class UserViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
     
-    private void AddNewConsumer()
+    private async Task AddNewConsumerAsync()
     {
         if (string.IsNullOrWhiteSpace(NewConsumerName) || SelectedTariffItem == null)
             return;
         
-        _ats.AddConsumer(NewConsumerName, NewConsumerMinutes, SelectedTariff);
-        
-        RefreshData();
-        
-        // Очищаем поля
-        NewConsumerName = string.Empty;
-        NewConsumerMinutes = 100;
-        SelectedTariffItem = null;
+        try
+        {
+            // Добавляем в ATS
+            _ats.AddConsumer(NewConsumerName, NewConsumerMinutes, SelectedTariff);
+            
+            // Получаем созданного Consumer
+            var consumer = _ats.GetConsumers().LastOrDefault();
+            
+            // Сохраняем в БД если передан делегат
+            if (consumer != null && _saveConsumerToDb != null)
+            {
+                await _saveConsumerToDb(consumer);
+            }
+            
+            RefreshData();
+            
+            // Очищаем поля
+            NewConsumerName = string.Empty;
+            NewConsumerMinutes = 100;
+            SelectedTariffItem = null;
+            
+            Console.WriteLine($"Потребитель '{consumer?.Name}' успешно добавлен");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка добавления потребителя: {ex.Message}");
+        }
     }
     
     private bool CanAddNewConsumer()
@@ -190,18 +226,36 @@ public class UserViewModel : INotifyPropertyChanged
                NewConsumerMinutes > 0;
     }
     
-    private void DeleteConsumer(object parameter)
+    private async Task DeleteConsumerAsync(string consumerName)
     {
-        if (parameter is not string consumerName || string.IsNullOrWhiteSpace(consumerName))
+        if (string.IsNullOrWhiteSpace(consumerName))
             return;
         
-        bool success = _ats.RemoveConsumer(consumerName);
-        
-        if (success)
+        try
         {
-            Console.WriteLine($"Пользователь {consumerName} успешно удален");
-            RefreshData();
-            _tariffVM.UpdateSortedTariffs();
+            // Удаляем из ATS
+            bool success = _ats.RemoveConsumer(consumerName);
+            
+            if (success)
+            {
+                // Удаляем из БД если передан делегат
+                if (_deleteConsumerFromDb != null)
+                {
+                    await _deleteConsumerFromDb(consumerName);
+                }
+                
+                Console.WriteLine($"Пользователь {consumerName} успешно удален");
+                RefreshData();
+                _tariffVM.UpdateSortedTariffs();
+            }
+            else
+            {
+                Console.WriteLine($"Пользователь {consumerName} не найден");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка удаления потребителя: {ex.Message}");
         }
     }
     
@@ -210,7 +264,7 @@ public class UserViewModel : INotifyPropertyChanged
         return parameter is string consumerName && !string.IsNullOrWhiteSpace(consumerName);
     }
     
-    private void AddTariffToConsumer()
+    private async Task AddTariffToConsumerAsync()
     {
         if (string.IsNullOrWhiteSpace(SelectedConsumerForTariff) || 
             SelectedTariffToAdd == null || 
@@ -219,13 +273,33 @@ public class UserViewModel : INotifyPropertyChanged
             return;
         }
         
-        _ats.AddTariffForConsumer(SelectedConsumerForTariff, MinutesToAdd, SelectedTariffToAdd.Name);
-        RefreshData();
-        _tariffVM.UpdateSortedTariffs();
-        
-        // Сбрасываем значения
-        MinutesToAdd = 100;
-        SelectedConsumerForTariff = string.Empty;
+        try
+        {
+            // Добавляем в ATS
+            _ats.AddTariffForConsumer(SelectedConsumerForTariff, MinutesToAdd, SelectedTariffToAdd.Name);
+            
+            // Сохраняем в БД если передан делегат
+            if (_addConsumerTariffToDb != null)
+            {
+                await _addConsumerTariffToDb(
+                    SelectedConsumerForTariff, 
+                    SelectedTariffToAdd.Name, 
+                    MinutesToAdd);
+            }
+            
+            RefreshData();
+            _tariffVM.UpdateSortedTariffs();
+            
+            Console.WriteLine($"Тариф '{SelectedTariffToAdd.Name}' добавлен потребителю '{SelectedConsumerForTariff}'");
+            
+            // Сбрасываем значения
+            MinutesToAdd = 100;
+            SelectedConsumerForTariff = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка добавления тарифа потребителю: {ex.Message}");
+        }
     }
     
     private bool CanAddTariffToConsumer()

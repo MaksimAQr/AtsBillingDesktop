@@ -18,6 +18,7 @@ public partial class MainWindowViewModel : ViewModelBase, INotifyPropertyChanged
 {
     private ATS _ats;
     private readonly DataService _dataService;
+    private readonly DatabaseService _dbService;
     private bool _isLoading = false;
     
     public UserViewModel UserVM {get;}
@@ -43,6 +44,7 @@ public partial class MainWindowViewModel : ViewModelBase, INotifyPropertyChanged
     {
         _ats = new ATS();
         _dataService = new DataService();
+        _dbService = new DatabaseService();
         
         TariffVM = new TariffViewModel(
         _ats, 
@@ -53,10 +55,35 @@ public partial class MainWindowViewModel : ViewModelBase, INotifyPropertyChanged
             RefreshData();
             AutoSaveData();
             TariffVM.UpdateSortedTariffs();
-        }
-        );
-        UserVM = new UserViewModel(_ats, _dataService, TariffVM);
-        ImportExportVM = new ImportExportViewModel(_ats, _dataService, RefreshData);
+        },
+        async (tariff) => 
+        {
+            await SaveTariffToDatabaseAsync(tariff);
+        });
+        UserVM = new UserViewModel(
+            _ats, 
+            _dataService, 
+            TariffVM,
+            async (consumer) => 
+            {
+                await SaveConsumerToDatabaseAsync(consumer);
+            },
+            async (consumerName) => 
+            {
+                await DeleteConsumerFromDatabaseAsync(consumerName);
+            },
+            async (consumerName, tariffName, minutes) => 
+            {
+                await AddConsumerTariffToDatabaseAsync(consumerName, tariffName, minutes);
+            });
+        ImportExportVM = new ImportExportViewModel(
+            _ats, 
+            _dataService, 
+            RefreshData,
+            async (tariff) => 
+            {
+                await SaveTariffToDatabaseAsync(tariff);
+            });
 
 
         RefreshDataCommand = new RelayCommand(RefreshData);
@@ -128,13 +155,149 @@ public partial class MainWindowViewModel : ViewModelBase, INotifyPropertyChanged
         RefreshData();
 
     }
-        private async void InitializeDataAsync()
+
+// Метод для сохранения Consumer в БД (с детальным логированием)
+private async Task SaveConsumerToDatabaseAsync(Consumer consumer)
+{
+    if (_isLoading) return;
+    
+    try
+    {
+        Console.WriteLine($"=== Начало сохранения потребителя '{consumer.Name}' в БД ===");
+        Console.WriteLine($"TotalCost: {consumer.TotalCost}");
+        Console.WriteLine($"Количество тарифов: {consumer.Tariffs.Count}");
+        
+        foreach (var tariff in consumer.Tariffs)
         {
-            _isLoading = true;
-            DataStatus = "Загрузка данных...";
+            Console.WriteLine($"  Тариф: {tariff.TariffName}, Минут: {tariff.Minutes}, Стоимость: {tariff.Cost}");
+        }
+        
+        await _dbService.SaveConsumerAsync(consumer);
+        Console.WriteLine($"Потребитель '{consumer.Name}' успешно сохранен в БД");
+        Console.WriteLine($"=== Конец сохранения ===\n");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"=== ОШИБКА сохранения потребителя '{consumer.Name}' ===");
+        Console.WriteLine($"Сообщение: {ex.Message}");
+        
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"Внутреннее исключение: {ex.InnerException.Message}");
             
+            if (ex.InnerException.InnerException != null)
+            {
+                Console.WriteLine($"Внутреннее-внутреннее исключение: {ex.InnerException.InnerException.Message}");
+            }
+        }
+        
+        Console.WriteLine($"StackTrace: {ex.StackTrace}");
+        Console.WriteLine($"=== Конец ошибки ===\n");
+    }
+}
+    private async Task DeleteConsumerFromDatabaseAsync(string consumerName)
+    {
+        if (_isLoading) return;
+        
+        try
+        {
+            bool deleted = await _dbService.DeleteConsumerAsync(consumerName);
+            if (deleted)
+            {
+                Console.WriteLine($"Потребитель '{consumerName}' удален из БД");
+            }
+            else
+            {
+                Console.WriteLine($"Потребитель '{consumerName}' не найден в БД");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка удаления потребителя из БД: {ex.Message}");
+        }
+    }
+    private async Task SaveTariffToDatabaseAsync(TariffInfo tariff)
+    {
+        if (_isLoading) return;
+        
+        try
+        {
+            await _dbService.SaveTariffAsync(tariff);
+            Console.WriteLine($"Тариф '{tariff.Name}' сохранен в БД");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка сохранения тарифа в БД: {ex.Message}");
+        }
+    }
+    private async Task AddConsumerTariffToDatabaseAsync(string consumerName, string tariffName, int minutes)
+    {
+        if (_isLoading) return;
+        
+        try
+        {
+            // Находим Consumer и Tariff в ATS для расчета стоимости
+            var consumer = _ats.GetConsumers().FirstOrDefault(c => c.Name == consumerName);
+            var tariff = _ats.GetTariffs().FirstOrDefault(t => t.Name == tariffName);
+            
+            if (consumer == null || tariff == null)
+            {
+                Console.WriteLine($"Consumer '{consumerName}' или Tariff '{tariffName}' не найдены в ATS");
+                return;
+            }
+            
+            // Создаем ConsumerTariff
+            var consumerTariff = new ConsumerTariff
+            {
+                TariffName = tariffName,
+                Minutes = minutes,
+                Cost = tariff.BaseCost * minutes
+            };
+            
+            await _dbService.AddConsumerTariffAsync(consumerName, consumerTariff);
+            
+            // Обновляем счетчик в ATS
+            tariff.ConsumerCount = await GetConsumerCountForTariffAsync(tariffName);
+            
+            Console.WriteLine($"Тариф '{tariffName}' добавлен потребителю '{consumerName}' в БД. Потребителей: {tariff.ConsumerCount}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка добавления тарифа потребителю в БД: {ex.Message}");
+        }
+    }
+    private async Task<int> GetConsumerCountForTariffAsync(string tariffName)
+    {
+        try
+        {
+            // Можно получить из БД или посчитать в ATS
+            return _ats.GetConsumers()
+                .Count(c => c.Tariffs.Any(t => t.TariffName == tariffName));
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+    private async void InitializeDataAsync()
+    {
+        _isLoading = true;
+        DataStatus = "Загрузка данных...";
+        
+        try
+        {
+            // Пытаемся загрузить из БД
+            await LoadDataFromDatabaseAsync();
+            DataStatus = $"Данные загружены из БД: {DateTime.Now:HH:mm:ss}";
+            Console.WriteLine("Данные успешно загружены из БД!");
+        }
+        catch (Exception dbEx)
+        {
+            Console.WriteLine($"Ошибка загрузки из БД: {dbEx.Message}");
             await LoadDataAsync();
-            
+        }
+        finally
+        {
             if (UserVM.Consumers.Count == 0 && UserVM.Tariffs.Count == 0)
             {
                 RefreshData();
@@ -144,9 +307,36 @@ public partial class MainWindowViewModel : ViewModelBase, INotifyPropertyChanged
             {
                 DataStatus = $"Загружено: {UserVM.Consumers.Count} потребителей, {UserVM.Tariffs.Count} тарифов";
             }
-            
-            _isLoading = false;
+        } 
+
+        
+        _isLoading = false;
+    }
+    private async Task LoadDataFromDatabaseAsync()
+    {
+        DataStatus = "Загрузка из базы данных...";
+        
+        // Проверяем, есть ли данные в БД
+        bool hasData = await _dbService.HasDataInDatabaseAsync();
+        
+        if (!hasData)
+        {
+            // Если данных нет, инициализируем тестовыми данными
+            Console.WriteLine("No data in Db");
         }
+        
+        // Загружаем данные из БД
+        var atsData = await _dbService.LoadAllDataFromDatabaseAsync();
+        
+        if (atsData != null)
+        {
+            _ats.LoadFromATSData(atsData);
+        }
+        else
+        {
+            throw new Exception("Не удалось загрузить данные из БД");
+        }
+    }
         private async System.Threading.Tasks.Task SaveDataAsync()
         {
             if (_isLoading) return;

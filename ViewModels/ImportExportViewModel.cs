@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ATS_Desktop.Models;
 using ATS_Desktop.Services;
+using System.Threading.Tasks;
 
 namespace ATS_Desktop.ViewModels;
 
@@ -15,6 +16,7 @@ public class ImportExportViewModel : INotifyPropertyChanged
     private readonly ATS _ats;
     private readonly DataService _dataService;
     private readonly Action _refreshUIAction;
+    private readonly Func<TariffInfo, Task> _saveTariffToDbAsync;
     
     private string _status = "";
     private string _importFilePath = "import_tariffs.json";
@@ -88,15 +90,20 @@ public class ImportExportViewModel : INotifyPropertyChanged
     
     public event PropertyChangedEventHandler PropertyChanged;
     
-    public ImportExportViewModel(ATS ats, DataService dataService, Action refreshUIAction)
+    public ImportExportViewModel(
+        ATS ats, 
+        DataService dataService, 
+        Action refreshUIAction,
+        Func<TariffInfo, Task> saveTariffToDbAsync = null)
     {
         _ats = ats;
         _dataService = dataService;
         _refreshUIAction = refreshUIAction;
+          _saveTariffToDbAsync = saveTariffToDbAsync;
     }
     
     // Ваши существующие методы остаются без изменений
-    public void ExecuteImport()
+    public async void ExecuteImport()
     {
         try
         {
@@ -135,29 +142,59 @@ public class ImportExportViewModel : INotifyPropertyChanged
             
             var existingTariffs = _ats.GetTariffs().ToList();
             int addedCount = 0;
+            int savedToDbCount = 0;
             
             foreach (var tariffInfo in importedTariffs)
             {
                 if (!existingTariffs.Any(t => t.Name == tariffInfo.Name))
                 {
+                    // Добавляем в ATS
                     if (tariffInfo.StrategyName.Contains("Preferential") && 
                         TryParseDiscount(tariffInfo.StrategyName, out double discount))
                     {
                         _ats.AddPreferentialTariff(tariffInfo.Name, tariffInfo.BaseCost, 
-                                                   discount, tariffInfo.Description);
-                        addedCount++;
+                                                discount, tariffInfo.Description);
                     }
                     else
                     {
                         _ats.AddSimpleTariff(tariffInfo.Name, tariffInfo.BaseCost, tariffInfo.Description);
-                        addedCount++;
                     }
+                    
+                    addedCount++;
+                    
+                    // Сохраняем в БД
+                    if (_saveTariffToDbAsync != null)
+                    {
+                        try
+                        {
+                            await _saveTariffToDbAsync(tariffInfo);
+                            savedToDbCount++;
+                            Console.WriteLine($"Тариф '{tariffInfo.Name}' сохранен в БД");
+                        }
+                        catch (Exception dbEx)
+                        {
+                            Console.WriteLine($"Ошибка сохранения тарифа '{tariffInfo.Name}' в БД: {dbEx.Message}");
+                            // Продолжаем импорт, даже если сохранение в БД не удалось
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Тариф '{tariffInfo.Name}' уже существует, пропускаем");
                 }
             }
             
             _refreshUIAction?.Invoke();
             ImportError = "";
-            Status = $"Импортировано {addedCount} новых тарифов из {importedTariffs.Count}";
+            
+            // Формируем статус с учетом сохранения в БД
+            string statusMessage = $"Импортировано {addedCount} новых тарифов из {importedTariffs.Count}";
+            if (_saveTariffToDbAsync != null && addedCount > 0)
+            {
+                statusMessage += $", сохранено в БД: {savedToDbCount}";
+            }
+            
+            Status = statusMessage;
         }
         catch (Exception ex)
         {
